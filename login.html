@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Fund Monitoring System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            color: #667eea;
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        .logo p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-login:active {
+            transform: translateY(0);
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .demo-credentials {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f4ff;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+
+        .demo-credentials h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .demo-credentials p {
+            margin: 5px 0;
+            color: #555;
+        }
+
+        .demo-credentials strong {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">
+            <h1>💰 Fund Monitor</h1>
+            <p>Project & Finance Management System</p>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="userType">User Type</label>
+                <select id="userType" required>
+                    <option value="">Select User Type</option>
+                    <option value="owner">Owner</option>
+                    <option value="financer">Financer</option>
+                    <option value="labour">Labour</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" placeholder="Enter username" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Enter password" required>
+            </div>
+
+            <button type="submit" class="btn-login">Login</button>
+        </form>
+
+        <div class="demo-credentials">
+            <h4>Demo Credentials:</h4>
+            <p><strong>Owner:</strong> owner / owner123</p>
+            <p><strong>Financer:</strong> financer / fin123</p>
+            <p><strong>Labour:</strong> labour / lab123</p>
+        </div>
+    </div>
+
+    <script>
+        // User credentials database (In production, this should be on server-side)
+        const users = {
+            owner: {
+                username: 'owner',
+                password: 'owner123',
+                role: 'owner',
+                fullName: 'Project Owner',
+                permissions: ['project', 'finance', 'labour', 'reports', 'settings']
+            },
+            financer: {
+                username: 'financer',
+                password: 'fin123',
+                role: 'financer',
+                fullName: 'Finance Manager',
+                permissions: ['finance', 'reports']
+            },
+            labour: {
+                username: 'labour',
+                password: 'lab123',
+                role: 'labour',
+                fullName: 'Labour Worker',
+                permissions: ['labour']
+            }
+        };
+
+        // Access Control Configuration
+        const accessControl = {
+            owner: {
+                dashboard: 'owner-dashboard.html',
+                allowedPages: [
+                    'project-details',
+                    'finance-details',
+                    'labour-details',
+                    'reports',
+                    'settings'
+                ],
+                features: {
+                    projectSummary: true,
+                    budgetVsActual: true,
+                    materialTracking: true,
+                    labourTracking: true,
+                    expenses: true,
+                    financialSummary: true,
+                    capitalManagement: true,
+                    billsFollowUp: true,
+                    csvUpload: true,
+                    billUpload: true,
+                    exportData: true
+                }
+            },
+            financer: {
+                dashboard: 'financer-dashboard.html',
+                allowedPages: [
+                    'finance-details',
+                    'reports'
+                ],
+                features: {
+                    projectSummary: false,
+                    budgetVsActual: true,
+                    materialTracking: false,
+                    labourTracking: false,
+                    expenses: false,
+                    financialSummary: true,
+                    capitalManagement: true,
+                    billsFollowUp: true,
+                    csvUpload: true,
+                    billUpload: true,
+                    exportData: true
+                }
+            },
+            labour: {
+                dashboard: 'labour-dashboard.html',
+                allowedPages: [
+                    'labour-details'
+                ],
+                features: {
+                    projectSummary: false,
+                    budgetVsActual: false,
+                    materialTracking: false,
+                    labourTracking: true,
+                    expenses: true,
+                    financialSummary: false,
+                    capitalManagement: false,
+                    billsFollowUp: false,
+                    csvUpload: false,
+                    billUpload: false,
+                    exportData: false
+                }
+            }
+        };
+
+        // Login Form Handler
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const userType = document.getElementById('userType').value;
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const errorMessage = document.getElementById('errorMessage');
+
+            // Validate inputs
+            if (!userType || !username || !password) {
+                showError('Please fill in all fields');
+                return;
+            }
+
+            // Authenticate user
+            const user = users[username];
+
+            if (!user) {
+                showError('Invalid username');
+                return;
+            }
+
+            if (user.password !== password) {
+                showError('Invalid password');
+                return;
+            }
+
+            if (user.role !== userType) {
+                showError('User type does not match');
+                return;
+            }
+
+            // Create session
+            const session = {
+                userId: username,
+                role: user.role,
+                fullName: user.fullName,
+                permissions: user.permissions,
+                accessControl: accessControl[user.role],
+                loginTime: new Date().toISOString(),
+                sessionId: generateSessionId()
+            };
+
+            // Store session
+            sessionStorage.setItem('userSession', JSON.stringify(session));
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('userRole', user.role);
+
+            // Show success and redirect
+            showSuccess('Login successful! Redirecting...');
+            
+            setTimeout(() => {
+                window.location.href = accessControl[user.role].dashboard;
+            }, 1000);
+        });
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            errorDiv.style.background = '#fee';
+            errorDiv.style.color = '#c33';
+            
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        function showSuccess(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            errorDiv.style.background = '#efe';
+            errorDiv.style.color = '#3c3';
+        }
+
+        function generateSessionId() {
+            return 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Check if already logged in
+        window.addEventListener('load', function() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn');
+            const userRole = localStorage.getItem('userRole');
+            
+            if (isLoggedIn === 'true' && userRole) {
+                // Redirect to appropriate dashboard
+                window.location.href = accessControl[userRole].dashboard;
+            }
+        });
+    </script>
+</body>
+</html>
