@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { roleGuard } = require('../middleware/auth');
 
 // GET all projects
 router.get('/', async (req, res) => {
@@ -199,13 +200,30 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE (soft delete)
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', roleGuard('admin', 'manager'), async (req, res) => {
+  const projectId = req.params.id;
+  const userId = req.user.user_id;
+  const userName = req.user.name || 'Unknown';
+
   try {
+    // 1. Fetch project name
+    const [proj] = await db.query('SELECT project_name FROM projects WHERE project_id = ?', [projectId]);
+    if (proj.length === 0) return res.status(404).json({ error: 'Project not found' });
+    const projectName = proj[0].project_name;
+
+    // 2. Soft delete project
     await db.query(
-      'UPDATE projects SET is_deleted = 1, deleted_at = NOW() WHERE project_id = ?',
-      [req.params.id]
+      'UPDATE projects SET is_deleted = 1, deleted_at = NOW(), deleted_by = ? WHERE project_id = ?',
+      [userId, projectId]
     );
-    res.json({ message: 'Project soft-deleted' });
+
+    // 3. Log to recycle_bin
+    await db.query(`
+      INSERT INTO recycle_bin (project_id, project_name, deleted_by_user, deleted_by_name, deleted_at)
+      VALUES (?, ?, ?, ?, NOW())
+    `, [projectId, projectName, userId, userName]);
+
+    res.json({ success: true, message: 'Project moved to Recycle Bin' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -20,13 +20,25 @@ import {
   HiOutlineMenu,
   HiOutlineX,
   HiOutlineLogout,
-  HiOutlineExclamationCircle
+  HiOutlineExclamationCircle,
+  HiOutlineTrash
 } from 'react-icons/hi';
 
 export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [recycleCount, setRecycleCount] = useState(0);
   const location = useLocation();
   const { user, logout, hasRole } = useAuth();
+
+  React.useEffect(() => {
+    if (['admin', 'manager'].includes(user?.role_name)) {
+      import('../api').then(API => {
+        API.default.get('/recycle-bin')
+          .then(res => setRecycleCount(res.data.length))
+          .catch(err => console.error('Failed to load recycle bin count'));
+      });
+    }
+  }, [user?.role_name, location.pathname]); // Refresh count when navigation happens
 
   // Role-based navigation
   const navSections = [
@@ -36,6 +48,7 @@ export default function Sidebar() {
       items: [
         { path: '/', label: 'Dashboard', icon: HiOutlineViewGrid },
         { path: '/alerts', label: 'Alerts', icon: HiOutlineExclamationCircle },
+        { path: '/recycle-bin', label: 'Recycle Bin', icon: HiOutlineTrash, roles: ['admin', 'manager'], badge: recycleCount }
       ]
     },
     {
@@ -160,9 +173,24 @@ export default function Sidebar() {
                   }
                   end={item.path === '/'}
                   onClick={() => setMobileOpen(false)}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                 >
-                  <span className="sidebar-link-icon"><item.icon /></span>
-                  {item.label}
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <span className="sidebar-link-icon"><item.icon /></span>
+                    {item.label}
+                  </div>
+                  {item.badge > 0 && (
+                    <span style={{
+                      background: '#ef4444',
+                      color: 'white',
+                      fontSize: '0.7rem',
+                      fontWeight: 'bold',
+                      padding: '2px 6px',
+                      borderRadius: '10px'
+                    }}>
+                      {item.badge}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </div>

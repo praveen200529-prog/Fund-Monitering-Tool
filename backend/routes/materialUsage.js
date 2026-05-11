@@ -9,7 +9,7 @@ router.get('/', async (req, res) => {
       SELECT mu.*, p.project_name, mm.material_name, mm.unit, u.name AS recorded_by_name,
              (mu.quantity * mu.unit_price) AS total_cost
       FROM material_usage mu
-      JOIN projects p ON mu.project_id = p.project_id
+      JOIN projects p ON mu.project_id = p.project_id AND p.is_deleted = 0
       JOIN materials_master mm ON mu.material_id = mm.material_id
       LEFT JOIN users u ON mu.recorded_by = u.user_id
       ORDER BY mu.usage_date DESC
@@ -44,7 +44,7 @@ router.get('/:id', async (req, res) => {
     const [rows] = await db.query(`
       SELECT mu.*, p.project_name, mm.material_name, mm.unit
       FROM material_usage mu
-      JOIN projects p ON mu.project_id = p.project_id
+      JOIN projects p ON mu.project_id = p.project_id AND p.is_deleted = 0
       JOIN materials_master mm ON mu.material_id = mm.material_id
       WHERE mu.id = ?
     `, [req.params.id]);

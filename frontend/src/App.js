@@ -28,6 +28,7 @@ import AuditLog from './pages/AuditLog';
 import AlertsPage from './pages/AlertsPage';
 import BudgetComparison from './pages/BudgetComparison';
 import ProjectDetail from './pages/ProjectDetail';
+import RecycleBin from './pages/RecycleBin';
 
 // Protected route wrapper
 function ProtectedRoute({ children, roles }) {
@@ -130,6 +131,9 @@ function AppRoutes() {
               } />
               <Route path="/budget-comparison" element={
                 <ProtectedRoute roles={['admin', 'manager']}><BudgetComparison /></ProtectedRoute>
+              } />
+              <Route path="/recycle-bin" element={
+                <ProtectedRoute roles={['admin', 'manager']}><RecycleBin /></ProtectedRoute>
               } />
 
               {/* Admin only */}

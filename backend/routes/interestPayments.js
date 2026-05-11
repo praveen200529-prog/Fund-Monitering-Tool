@@ -10,7 +10,7 @@ router.get('/', async (req, res) => {
              p.project_name, f.name AS financier_name, u.name AS created_by_name
       FROM interest_payments ip
       JOIN project_loans pl ON ip.loan_id = pl.id
-      JOIN projects p ON pl.project_id = p.project_id
+      JOIN projects p ON pl.project_id = p.project_id AND p.is_deleted = 0
       JOIN financiers f ON pl.financier_id = f.financier_id
       LEFT JOIN users u ON ip.created_by = u.user_id
       ORDER BY ip.payment_date DESC

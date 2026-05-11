@@ -9,7 +9,7 @@ router.get('/', async (req, res) => {
       SELECT mu.*, p.project_name, mm.machine_name, mm.machine_type,
              u.name AS recorded_by_name, (mu.usage_hours * mu.hourly_rate) AS total_cost
       FROM machine_usage mu
-      JOIN projects p ON mu.project_id = p.project_id
+      JOIN projects p ON mu.project_id = p.project_id AND p.is_deleted = 0
       JOIN machines_master mm ON mu.machine_id = mm.machine_id
       LEFT JOIN users u ON mu.recorded_by = u.user_id
       ORDER BY mu.usage_date DESC

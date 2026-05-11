@@ -63,9 +63,9 @@ export default function Projects() {
   const handleDelete = async () => {
     try {
       await API.delete(`/projects/${deleteTarget.project_id}`);
-      toast.success('Project deleted');
+      toast.success('Project moved to Recycle Bin');
       setShowDelete(false); setDeleteTarget(null); load();
-    } catch { toast.error('Failed to delete'); }
+    } catch { toast.error('Failed to move to Recycle Bin'); }
   };
 
   const fmt = (n) => n ? new Intl.NumberFormat('en-IN', {
@@ -174,11 +174,14 @@ export default function Projects() {
         </div>
       </Modal>
 
-      <Modal isOpen={showDelete} onClose={() => setShowDelete(false)} title="Confirm Delete">
+      <Modal isOpen={showDelete} onClose={() => setShowDelete(false)} title="Move to Recycle Bin">
         <DeleteConfirm
           itemName={deleteTarget?.project_name}
           onConfirm={handleDelete}
           onCancel={() => setShowDelete(false)}
+          customTitle={`Move ${deleteTarget?.project_name} to Recycle Bin?`}
+          customText="This project will be hidden from all views but can be restored later."
+          customButtonText="Move to Bin"
         />
       </Modal>
     </div>

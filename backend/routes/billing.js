@@ -8,7 +8,7 @@ router.get('/', async (req, res) => {
     const [rows] = await db.query(`
       SELECT b.*, p.project_name, u.name AS created_by_name
       FROM billing b
-      JOIN projects p ON b.project_id = p.project_id
+      JOIN projects p ON b.project_id = p.project_id AND p.is_deleted = 0
       LEFT JOIN users u ON b.created_by = u.user_id
       ORDER BY b.billing_date DESC
     `);

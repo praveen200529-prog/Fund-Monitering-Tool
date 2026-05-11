@@ -1,5 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
 import API from '../api';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -20,6 +24,13 @@ import {
 } from 'react-icons/hi';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
+const formatINR = (value) => {
+  if (value == null) return '—';
+  if (value >= 10000000) return `₹${(value / 10000000).toFixed(2)} Cr`;
+  if (value >= 100000) return `₹${(value / 100000).toFixed(2)} L`;
+  return `₹${value.toLocaleString('en-IN')}`;
+};
+
 const fmt = (n) =>
   n != null && n !== ''
     ? new Intl.NumberFormat('en-IN', {
@@ -167,7 +178,7 @@ export default function ProjectDetail() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('materials');
+  const [activeTab, setActiveTab] = useState('analytics');
 
   useEffect(() => {
     API.get(`/projects/${id}/details`)
@@ -176,25 +187,88 @@ export default function ProjectDetail() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // ── Data Processing for Analytics (Hooks MUST be above returns) ──
+  const costBreakdown = useMemo(() => {
+    if (!data) return [];
+    return [
+      { name: 'Materials', value: parseFloat(data.financials.material_cost) || 0, fill: '#3b82f6' },
+      { name: 'Manpower', value: parseFloat(data.financials.manpower_cost) || 0, fill: '#f97316' },
+      { name: 'Machines', value: parseFloat(data.financials.machine_cost) || 0, fill: '#a855f7' },
+      { name: 'Expenses', value: parseFloat(data.financials.expense_cost) || 0, fill: '#f43f5e' }
+    ].filter(i => i.value > 0);
+  }, [data]);
+
+  const billingBreakdown = useMemo(() => {
+    if (!data) return [];
+    let paid = 0, pending = 0, overdue = 0;
+    data.billing.forEach(b => {
+      if (b.status === 'paid') paid++;
+      else if (b.due_date && new Date(b.due_date) < new Date()) overdue++;
+      else pending++;
+    });
+    return [
+      { name: 'Paid', value: paid, fill: '#10b981' },
+      { name: 'Pending', value: pending, fill: '#eab308' },
+      { name: 'Overdue', value: overdue, fill: '#ef4444' }
+    ].filter(i => i.value > 0);
+  }, [data]);
+
+  const monthlyTrend = useMemo(() => {
+    if (!data) return [];
+    const map = {};
+    const add = (dateStr, type, amt) => {
+      if (!dateStr || !amt) return;
+      const d = new Date(dateStr);
+      const m = `${d.toLocaleString('en-IN', { month: 'short' })} ${d.getFullYear()}`;
+      if (!map[m]) map[m] = { month: m, materials: 0, manpower: 0, machines: 0, expenses: 0, timestamp: new Date(d.getFullYear(), d.getMonth(), 1).getTime() };
+      map[m][type] += parseFloat(amt);
+    };
+    data.material_usage.forEach(r => add(r.usage_date, 'materials', r.total_cost));
+    data.manpower_usage.forEach(r => add(r.work_date, 'manpower', r.total_cost));
+    data.machine_usage.forEach(r => add(r.usage_date, 'machines', r.total_cost));
+    data.expenses.forEach(r => add(r.expense_date, 'expenses', r.amount));
+    return Object.values(map).sort((a, b) => a.timestamp - b.timestamp);
+  }, [data]);
+
+  // ── Early Returns ──
   if (loading) return <div className="loading-spinner"><div className="spinner" /></div>;
 
-  if (error) {
+  if (error || !data) {
     return (
       <div className="animate-in" style={{ textAlign: 'center', padding: '60px 20px' }}>
         <div style={{ fontSize: '3rem', marginBottom: 16 }}>🚫</div>
         <h2 style={{ color: 'var(--danger)' }}>Project Not Found</h2>
-        <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>{error}</p>
+        <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>{error || 'Unknown error'}</p>
         <Link to="/projects" className="btn btn-secondary">← Back to Projects</Link>
       </div>
     );
   }
 
   const { project, progress, financials, material_usage, manpower_usage, machine_usage, team, billing, expenses } = data;
-
   const isOverBudget = financials.budget_variance < 0;
 
-  // ── Resource tabs
-  const resourceTabs = [
+  // ── Chart Variables ──
+  const budgetData = [
+    { name: 'Estimated Budget', value: parseFloat(project.estimated_budget) || 0, fill: '#3b82f6' },
+    { name: 'Actual Cost', value: financials.actual_cost, fill: isOverBudget ? '#ef4444' : '#10b981' }
+  ];
+
+  const fundingData = [
+    { name: 'Investments', value: financials.total_investments, fill: '#10b981' },
+    { name: 'Loans', value: financials.total_loans, fill: '#3b82f6' },
+    { name: 'Expenses', value: financials.expense_cost, fill: '#f59e0b' }
+  ].filter(i => i.value > 0);
+
+  const chartCardStyle = {
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '12px',
+    padding: '20px'
+  };
+
+  // ── Main Page Tabs ──
+  const mainTabs = [
+    { id: 'analytics', label: '📊 Analytics', count: null },
     { id: 'materials', label: '🧱 Materials', count: material_usage.length },
     { id: 'manpower', label: '👷 Manpower', count: manpower_usage.length },
     { id: 'machines', label: '🚜 Machines', count: machine_usage.length },
@@ -299,10 +373,165 @@ export default function ProjectDetail() {
         </div>
       )}
 
+      {/* ── Tabbed View: Analytics & Resources ── */}
+      <TabGroup tabs={mainTabs} active={activeTab} onChange={setActiveTab} />
+
+      {activeTab === 'analytics' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, marginBottom: 20 }}>
+          
+          {/* Chart 1: Budget vs Actual */}
+          <div style={chartCardStyle}>
+            <h3 style={{ margin: '0 0 4px', fontSize: '1rem', color: '#fff' }}>Budget vs Actual Cost</h3>
+            <p style={{ margin: '0 0 20px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              {isOverBudget ? (
+                <span style={{ color: '#ef4444' }}>{formatINR(Math.abs(financials.budget_variance))} Over Budget</span>
+              ) : (
+                <span style={{ color: '#10b981' }}>{formatINR(financials.budget_variance)} Under Budget</span>
+              )}
+            </p>
+            <div style={{ height: 250 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={budgetData} margin={{ left: -10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="name" stroke="#a0aec0" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#a0aec0" fontSize={12} tickLine={false} axisLine={false} tickFormatter={formatINR} />
+                  <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ background: '#1e1e2d', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} formatter={(val) => formatINR(val)} />
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]} isAnimationActive={true}>
+                    {budgetData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Chart 2: Cost Breakdown */}
+          <div style={chartCardStyle}>
+            <h3 style={{ margin: '0 0 4px', fontSize: '1rem', color: '#fff' }}>Cost Breakdown</h3>
+            <p style={{ margin: '0 0 20px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Distribution of actual project expenses</p>
+            <div style={{ height: 250 }}>
+              {costBreakdown.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                    <Pie data={costBreakdown} cx="50%" cy="50%" innerRadius={60} outerRadius={90} dataKey="value" stroke="rgba(0,0,0,0.5)" strokeWidth={2} isAnimationActive={true}>
+                      {costBreakdown.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: '#1e1e2d', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} formatter={(val) => formatINR(val)} />
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: '0.8rem' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>No data available yet</div>
+              )}
+            </div>
+          </div>
+
+          {/* Chart 3: Monthly Cost Trend */}
+          <div style={{ ...chartCardStyle, gridColumn: '1 / -1' }}>
+            <h3 style={{ margin: '0 0 4px', fontSize: '1rem', color: '#fff' }}>Monthly Cost Trend</h3>
+            <p style={{ margin: '0 0 20px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Expenditure progression over time</p>
+            <div style={{ height: 320 }}>
+              {monthlyTrend.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={monthlyTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <XAxis dataKey="month" stroke="#a0aec0" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#a0aec0" fontSize={12} tickLine={false} axisLine={false} tickFormatter={formatINR} />
+                    <Tooltip contentStyle={{ background: '#1e1e2d', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} formatter={(val) => formatINR(val)} />
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: '0.8rem', paddingTop: 15 }} />
+                    <Line type="monotone" dataKey="materials" name="Materials" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} isAnimationActive={true} />
+                    <Line type="monotone" dataKey="manpower" name="Manpower" stroke="#f97316" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} isAnimationActive={true} />
+                    <Line type="monotone" dataKey="machines" name="Machines" stroke="#a855f7" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} isAnimationActive={true} />
+                    <Line type="monotone" dataKey="expenses" name="Other Expenses" stroke="#f43f5e" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} isAnimationActive={true} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>No data available yet</div>
+              )}
+            </div>
+          </div>
+
+          {/* Chart 4: Resource Utilization (Stacked) */}
+          <div style={chartCardStyle}>
+            <h3 style={{ margin: '0 0 4px', fontSize: '1rem', color: '#fff' }}>Resource Utilization Split</h3>
+            <p style={{ margin: '0 0 20px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Monthly 3M distribution</p>
+            <div style={{ height: 260 }}>
+              {monthlyTrend.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyTrend} margin={{ left: -10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <XAxis dataKey="month" stroke="#a0aec0" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#a0aec0" fontSize={12} tickLine={false} axisLine={false} tickFormatter={formatINR} />
+                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ background: '#1e1e2d', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} formatter={(val) => formatINR(val)} />
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: '0.8rem', paddingTop: 10 }} />
+                    <Bar dataKey="materials" name="Materials" stackId="a" fill="#3b82f6" isAnimationActive={true} />
+                    <Bar dataKey="manpower" name="Manpower" stackId="a" fill="#f97316" isAnimationActive={true} />
+                    <Bar dataKey="machines" name="Machines" stackId="a" fill="#a855f7" radius={[4, 4, 0, 0]} isAnimationActive={true} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>No data available yet</div>
+              )}
+            </div>
+          </div>
+
+          {/* Chart 5: Funding vs Expense */}
+          <div style={chartCardStyle}>
+            <h3 style={{ margin: '0 0 4px', fontSize: '1rem', color: '#fff' }}>Funding Sources vs Burn</h3>
+            <p style={{ margin: '0 0 20px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total investments, loans and expenses</p>
+            <div style={{ height: 260 }}>
+              {fundingData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={fundingData} layout="vertical" margin={{ top: 0, right: 30, left: 10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                    <XAxis type="number" stroke="#a0aec0" fontSize={12} tickLine={false} axisLine={false} tickFormatter={formatINR} />
+                    <YAxis dataKey="name" type="category" stroke="#a0aec0" fontSize={12} tickLine={false} axisLine={false} width={80} />
+                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ background: '#1e1e2d', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} formatter={(val) => formatINR(val)} />
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={30} isAnimationActive={true}>
+                      {fundingData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>No data available yet</div>
+              )}
+            </div>
+          </div>
+
+          {/* Chart 6: Billing Status (Manager+ only) */}
+          {isManager && (
+            <div style={{ ...chartCardStyle }}>
+              <h3 style={{ margin: '0 0 4px', fontSize: '1rem', color: '#fff' }}>Billing Status Breakdown</h3>
+              <p style={{ margin: '0 0 20px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Invoice statuses by count</p>
+              <div style={{ height: 260, position: 'relative' }}>
+                {billingBreakdown.length > 0 ? (
+                  <>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                        <Pie data={billingBreakdown} cx="50%" cy="50%" innerRadius={60} outerRadius={90} dataKey="value" stroke="rgba(0,0,0,0.5)" strokeWidth={2} isAnimationActive={true} labelLine={false}>
+                          {billingBreakdown.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
+                        </Pie>
+                        <Tooltip contentStyle={{ background: '#1e1e2d', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} formatter={(val) => [val, 'Invoices']} />
+                        <Legend iconType="circle" wrapperStyle={{ fontSize: '0.8rem' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div style={{ position: 'absolute', top: '43%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
+                      <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#fff', lineHeight: 1 }}>{billing.length}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 2 }}>Total</div>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>No billing data available</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── SECTION 3: Resource Usage ── */}
-      <div className="card" style={{ marginBottom: 20 }}>
-        <SectionHeader icon={HiOutlineCube} title="Resource Usage (3M)" color="#f59e0b" />
-        <TabGroup tabs={resourceTabs} active={activeTab} onChange={setActiveTab} />
+      {['materials', 'manpower', 'machines'].includes(activeTab) && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <SectionHeader icon={HiOutlineCube} title="Resource Usage Details" color="#f59e0b" />
 
         {activeTab === 'materials' && (
           <SimpleTable
@@ -346,7 +575,8 @@ export default function ProjectDetail() {
             rows={machine_usage}
           />
         )}
-      </div>
+        </div>
+      )}
 
       {/* ── SECTION 4: Team ── */}
       <div className="card" style={{ marginBottom: 20 }}>

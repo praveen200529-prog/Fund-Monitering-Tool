@@ -8,7 +8,7 @@ router.get('/', async (req, res) => {
     const [rows] = await db.query(`
       SELECT pp.*, p.project_name, u.name AS recorded_by_name
       FROM project_progress pp
-      JOIN projects p ON pp.project_id = p.project_id
+      JOIN projects p ON pp.project_id = p.project_id AND p.is_deleted = 0
       LEFT JOIN users u ON pp.recorded_by = u.user_id
       ORDER BY pp.year DESC, pp.month DESC
     `);

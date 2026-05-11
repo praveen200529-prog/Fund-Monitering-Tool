@@ -43,6 +43,7 @@ app.use('/api/project-progress', require('./routes/projectProgress'));
 app.use('/api/project-team', require('./routes/projectTeam'));
 app.use('/api/audit-log', require('./routes/auditLog'));
 app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/recycle-bin', require('./routes/recycleBin'));
 
 // Health check
 app.get('/api/health', (req, res) => {

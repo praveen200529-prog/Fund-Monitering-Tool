@@ -9,7 +9,7 @@ router.get('/', async (req, res) => {
       SELECT mu.*, p.project_name, w.name AS worker_name, wr.role_name AS worker_role_name,
              u.name AS recorded_by_name, (mu.work_days * mu.daily_rate) AS total_cost
       FROM manpower_usage mu
-      JOIN projects p ON mu.project_id = p.project_id
+      JOIN projects p ON mu.project_id = p.project_id AND p.is_deleted = 0
       JOIN workers w ON mu.worker_id = w.worker_id
       LEFT JOIN worker_roles wr ON w.worker_role_id = wr.worker_role_id
       LEFT JOIN users u ON mu.recorded_by = u.user_id

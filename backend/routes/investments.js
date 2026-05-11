@@ -8,7 +8,7 @@ router.get('/', async (req, res) => {
     const [rows] = await db.query(`
       SELECT pi.*, p.project_name, i.name AS investor_name, u.name AS created_by_name
       FROM project_investments pi
-      JOIN projects p ON pi.project_id = p.project_id
+      JOIN projects p ON pi.project_id = p.project_id AND p.is_deleted = 0
       JOIN investors i ON pi.investor_id = i.investor_id
       LEFT JOIN users u ON pi.created_by = u.user_id
       ORDER BY pi.investment_date DESC
